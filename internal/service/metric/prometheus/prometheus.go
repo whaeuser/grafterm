@@ -3,13 +3,9 @@ package prometheus
 import (
 	"context"
 	"fmt"
-	"net"
-	"net/url"
 	"strings"
-	"syscall"
 	"time"
 
-	"github.com/pkg/errors"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prommodel "github.com/prometheus/common/model"
 

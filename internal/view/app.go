@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/slok/grafterm/internal/service/log"
 	viewsync "github.com/slok/grafterm/internal/view/sync"
 	"github.com/slok/grafterm/internal/view/template"

@@ -2,9 +2,7 @@ package widget
 
 import (
 	"context"
-	"fmt"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/slok/grafterm/internal/controller"
@@ -12,7 +10,7 @@ import (
 	"github.com/slok/grafterm/internal/service/log"
 	"github.com/slok/grafterm/internal/service/unit"
 	"github.com/slok/grafterm/internal/view/render"
-	"github.com/slok/grafterm/internal/view/sync"
+	viewsync "github.com/slok/grafterm/internal/view/sync"
 	"github.com/slok/grafterm/internal/view/template"
 )
 
@@ -30,7 +28,7 @@ type graph struct {
 }
 
 // NewGraph returns new Graph widget syncer.
-func NewGraph(controller controller.Controller, rendererWidget render.GraphWidget, logger log.Logger) sync.Syncer {
+func NewGraph(controller controller.Controller, rendererWidget render.GraphWidget, logger log.Logger) viewsync.Syncer {
 	wcfg := rendererWidget.GetWidgetCfg()
 
 	return &graph{
@@ -48,7 +46,7 @@ type metricSeries struct {
 	series model.MetricSeries
 }
 
-func (g *graph) Sync(ctx context.Context, r *sync.Request) error {
+func (g *graph) Sync(ctx context.Context, r *viewsync.Request) error {
 	// If already syncing ignore call.
 	if g.syncLock.Get() {
 		return nil
@@ -150,7 +148,7 @@ func (g *graph) createIndexedSlices(start, end time.Time, step time.Duration, ca
 	return xLabels, indexedTime
 }
 
-func (g *graph) transformToRenderable(r *sync.Request, series []metricSeries, xLabels []string, indexedTime []time.Time) []render.Series {
+func (g *graph) transformToRenderable(r *viewsync.Request, series []metricSeries, xLabels []string, indexedTime []time.Time) []render.Series {
 	renderSeries := []render.Series{}
 
 	var colorman widgetColorManager

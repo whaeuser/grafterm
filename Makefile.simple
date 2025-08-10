@@ -1,0 +1,119 @@
+# Simple Makefile for grafterm without Docker
+# Name of this service/application
+SERVICE_NAME := grafterm
+
+# Version from Git
+VERSION := $(shell git describe --tags --always 2>/dev/null || echo "dev")
+
+# Source and output paths
+SRC := ./cmd/grafterm
+OUTPUT_DIR := ./bin
+BINARY_NAME := grafterm
+
+# Default target
+.PHONY: default
+default: build
+
+# Build the binary
+.PHONY: build
+build:
+	@echo "Building $(SERVICE_NAME)..."
+	@mkdir -p $(OUTPUT_DIR)
+	@go build -ldflags "-w -extldflags '-static' -X main.Version=$(VERSION)" -o $(OUTPUT_DIR)/$(BINARY_NAME) $(SRC)
+	@chmod +x $(OUTPUT_DIR)/$(BINARY_NAME)
+	@echo "Build completed: $(OUTPUT_DIR)/$(BINARY_NAME)"
+
+# Build for multiple platforms
+.PHONY: build-all
+build-all:
+	@echo "Building for multiple platforms..."
+	@mkdir -p $(OUTPUT_DIR)
+	@GOOS=linux GOARCH=amd64 go build -ldflags "-w -extldflags '-static' -X main.Version=$(VERSION)" -o $(OUTPUT_DIR)/$(BINARY_NAME)-linux-amd64 $(SRC)
+	@GOOS=darwin GOARCH=amd64 go build -ldflags "-w -extldflags '-static' -X main.Version=$(VERSION)" -o $(OUTPUT_DIR)/$(BINARY_NAME)-darwin-amd64 $(SRC)
+	@GOOS=windows GOARCH=amd64 go build -ldflags "-w -extldflags '-static' -X main.Version=$(VERSION)" -o $(OUTPUT_DIR)/$(BINARY_NAME)-windows-amd64.exe $(SRC)
+	@chmod +x $(OUTPUT_DIR)/$(BINARY_NAME)-linux-amd64 $(OUTPUT_DIR)/$(BINARY_NAME)-darwin-amd64
+	@echo "Multi-platform build completed in $(OUTPUT_DIR)/"
+
+# Run unit tests
+.PHONY: test
+test:
+	@echo "Running unit tests..."
+	@go test $$(go list ./... | grep -v vendor) -v
+
+# Run integration tests
+.PHONY: test-integration
+test-integration:
+	@echo "Running integration tests..."
+	@go test $$(go list ./... | grep -v vendor) -v -tags='integration'
+
+# Run all tests
+.PHONY: test-all
+test-all: test test-integration
+
+# Run single test
+.PHONY: test-single
+test-single:
+	@read -p "Enter test name (e.g., TestSomeFunction): " TEST_NAME; \
+	go test $$(go list ./... | grep -v vendor) -v -run $$TEST_NAME
+
+# Run tests for specific package
+.PHONY: test-package
+test-package:
+	@read -p "Enter package path (e.g., ./internal/service/metric/prometheus): " PACKAGE; \
+	go test $$PACKAGE -v
+
+# Download dependencies
+.PHONY: deps
+deps:
+	@echo "Downloading dependencies..."
+	@go mod tidy
+	@go mod vendor
+
+# Format code
+.PHONY: fmt
+fmt:
+	@echo "Formatting code..."
+	@go fmt ./...
+
+# Run linter (if golangci-lint is installed)
+.PHONY: lint
+lint:
+	@echo "Running linter..."
+	@golangci-lint run 2>/dev/null || echo "golangci-lint not installed, skipping linting"
+
+# Clean build artifacts
+.PHONY: clean
+clean:
+	@echo "Cleaning build artifacts..."
+	@rm -rf $(OUTPUT_DIR)/
+
+# Install binary to GOPATH/bin
+.PHONY: install
+install:
+	@echo "Installing $(SERVICE_NAME)..."
+	@go install -ldflags "-X main.Version=$(VERSION)" $(SRC)
+
+# Run the application
+.PHONY: run
+run: build
+	@echo "Running $(SERVICE_NAME)..."
+	@./$(OUTPUT_DIR)/$(BINARY_NAME)
+
+# Show help
+.PHONY: help
+help:
+	@echo "Available targets:"
+	@echo "  build          - Build the binary for current platform"
+	@echo "  build-all      - Build for multiple platforms (Linux, Darwin, Windows)"
+	@echo "  test           - Run unit tests"
+	@echo "  test-integration - Run integration tests"
+	@echo "  test-all       - Run all tests"
+	@echo "  test-single    - Run a single test"
+	@echo "  test-package   - Run tests for specific package"
+	@echo "  deps           - Download dependencies"
+	@echo "  fmt            - Format code"
+	@echo "  lint           - Run linter"
+	@echo "  clean          - Clean build artifacts"
+	@echo "  install        - Install binary to GOPATH/bin"
+	@echo "  run            - Build and run the application"
+	@echo "  help           - Show this help message"

@@ -2,6 +2,8 @@ package page
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/slok/grafterm/internal/controller"
@@ -10,7 +12,7 @@ import (
 	"github.com/slok/grafterm/internal/view/grid"
 	"github.com/slok/grafterm/internal/view/page/widget"
 	"github.com/slok/grafterm/internal/view/render"
-	"github.com/slok/grafterm/internal/view/sync"
+	viewsync "github.com/slok/grafterm/internal/view/sync"
 	"github.com/slok/grafterm/internal/view/template"
 	"github.com/slok/grafterm/internal/view/variable"
 )
@@ -27,7 +29,7 @@ type DashboardCfg struct {
 // NewDashboard returns a new syncer from a dashboard with all the required
 // widgets loaded.
 // The widgets the dashboard manages at the same time are syncers also.
-func NewDashboard(ctx context.Context, cfg DashboardCfg, logger log.Logger) (sync.Syncer, error) {
+func NewDashboard(ctx context.Context, cfg DashboardCfg, logger log.Logger) (viewsync.Syncer, error) {
 	// Create variablers.
 	vs, err := variable.NewVariablers(variable.FactoryConfig{
 		TimeRange: cfg.AppRelativeTimeRange,
@@ -68,13 +70,13 @@ func NewDashboard(ctx context.Context, cfg DashboardCfg, logger log.Logger) (syn
 
 type dashboard struct {
 	cfg        DashboardCfg
-	widgets    []sync.Syncer
+	widgets    []viewsync.Syncer
 	ctrl       controller.Controller
 	variablers map[string]variable.Variabler
 	logger     log.Logger
 }
 
-func (d *dashboard) Sync(ctx context.Context, r *sync.Request) error {
+func (d *dashboard) Sync(ctx context.Context, r *viewsync.Request) error {
 	// Add dashboard sync data.
 	r = d.syncData(r)
 
@@ -88,7 +90,7 @@ func (d *dashboard) Sync(ctx context.Context, r *sync.Request) error {
 	
 	for _, w := range d.widgets {
 		wg.Add(1)
-		go func(widget sync.Syncer) {
+		go func(widget viewsync.Syncer) {
 			defer wg.Done()
 			
 			// Don't wait to sync all at the same time, the widgets
@@ -121,12 +123,12 @@ func (d *dashboard) Sync(ctx context.Context, r *sync.Request) error {
 	return nil
 }
 
-func (d *dashboard) createWidgets(rws []render.Widget) []sync.Syncer {
-	widgets := []sync.Syncer{}
+func (d *dashboard) createWidgets(rws []render.Widget) []viewsync.Syncer {
+	widgets := []viewsync.Syncer{}
 
 	// Create app widgets based on the render view widgets.
 	for _, rw := range rws {
-		var w sync.Syncer
+		var w viewsync.Syncer
 
 		// Depending on the type create a widget kind or another.
 		switch v := rw.(type) {
@@ -173,7 +175,7 @@ func (d *dashboard) staticData() template.Data {
 	return dashboardData
 }
 
-func (d *dashboard) syncData(r *sync.Request) *sync.Request {
+func (d *dashboard) syncData(r *viewsync.Request) *viewsync.Request {
 	// Load variablers data from the sync scope.
 	data := map[string]interface{}{}
 	for vid, v := range d.variablers {

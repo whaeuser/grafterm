@@ -1,14 +1,54 @@
 # Grafterm Development Guidelines
 
 ## Build & Test Commands
-- `make test` - Run integration tests
-- `make unit-test` - Run unit tests  
-- `make integration-test` - Run integration tests
-- `go test ./... -v -run TestName` - Run single test (requires Go installation)
-- `go test ./internal/service/metric/prometheus -v` - Test specific package (requires Go)
+
+### 🔧 Go Installation
+**Falls Go nicht installiert ist:**
+- `./install-go.sh` - Installiere Go automatisch für macOS
+- `./no-go-help.sh` - Zeigt Alternativen ohne lokale Go-Installation
+- `brew install go` - Installiere Go mit Homebrew
+- Manuell: Download von https://golang.org/dl/
+
+### 🔧 Dependency Management
+- `./fix-deps.sh` - Behebt fehlende Abhängigkeiten und aktualisiert go.sum
+- `go mod tidy` - Bereinigt Abhängigkeiten
+- `go mod download` - Läd Abhängigkeiten herunter
+- `go mod verify` - Verifiziert Abhängigkeiten
+
+### 🚀 Simple Build Commands (Go erforderlich)
+- `./build.sh` - Build binary for current platform
+- `make -f Makefile.simple build` - Build using simple Makefile
+- `make -f Makefile.simple build-all` - Build for multiple platforms
+- `make -f Makefile.simple install` - Install to GOPATH/bin
+
+### 🐳 Docker Build Commands (kein Go erforderlich)
+- `./build-docker.sh` - Build mit Docker
+- `docker run -v $(pwd):/src -w /src golang:latest go build ./cmd/grafterm` - Direkter Docker Build
+
+### 🧪 Testing Commands
+- `./test.sh` - Run unit tests
+- `./test-integration.sh` - Run integration tests
+- `make -f Makefile.simple test` - Run unit tests
+- `make -f Makefile.simple test-integration` - Run integration tests
+- `make -f Makefile.simple test-all` - Run all tests
+- `make -f Makefile.simple test-single` - Run single test (interactive)
+- `make -f Makefile.simple test-package` - Test specific package (interactive)
+- `go test ./... -v -run TestName` - Run single test directly
+- `go test ./internal/service/metric/prometheus -v` - Test specific package
+
+### 🛠️ Development Commands
+- `make -f Makefile.simple deps` - Download dependencies
+- `make -f Makefile.simple fmt` - Format code
+- `make -f Makefile.simple lint` - Run linter (if installed)
+- `make -f Makefile.simple clean` - Clean build artifacts
+- `make -f Makefile.simple run` - Build and run application
+
+### 📦 Original Docker Commands (Still Available)
+- `make test` - Run integration tests (Docker)
+- `make unit-test` - Run unit tests (Docker)
+- `make integration-test` - Run integration tests (Docker)
 - `make build` - Build development Docker image
-- `make build-binary` - Build production binary
-- `make deps` - Vendor dependencies
+- `make build-binary` - Build production binary (Docker)
 
 ## Code Style Guidelines
 
