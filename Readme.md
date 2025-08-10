@@ -19,10 +19,104 @@ Visualize metrics dashboards on the terminal, like a simplified and minimalist v
 - Color customization on widgets.
 - Configurable autorefresh.
 - Single binary and easy usage/deployment.
+- **Enhanced error handling with graceful timeout management**.
+- **Multiple build options (Docker-free, Docker, simple scripts)**.
 
 ## Installation
 
-Download the binaries from [releases]
+### Option 1: Download Binaries
+Download the pre-built binaries from [releases]
+
+### Option 2: Build from Source
+
+#### Quick Start (Recommended)
+```bash
+# Clone the repository
+git clone https://github.com/slok/grafterm.git
+cd grafterm
+
+# Install Go automatically (macOS) or use alternatives
+./install-go.sh
+
+# Build the binary
+./build.sh
+
+# Run grafterm
+./bin/grafterm -c ./dashboard-examples/go.json
+```
+
+#### Alternative Build Methods
+
+**Without Go Installation (Docker):**
+```bash
+# Build using Docker
+./build-docker.sh
+```
+
+**Using Simple Makefile:**
+```bash
+# Build for current platform
+make -f Makefile.simple build
+
+# Build for multiple platforms
+make -f Makefile.simple build-all
+
+# Install to GOPATH/bin
+make -f Makefile.simple install
+```
+
+**Manual Go Installation:**
+```bash
+# Install Go with Homebrew (macOS)
+brew install go
+
+# Or download from https://golang.org/dl/
+# Then build:
+go build -o bin/grafterm ./cmd/grafterm
+```
+
+## Development
+
+### Setup Development Environment
+```bash
+# Install Go
+./install-go.sh
+
+# Fix dependencies
+./fix-deps.sh
+
+# Run tests
+./test.sh
+./test-integration.sh
+
+# Build and run
+./build.sh
+./bin/grafterm -c ./dashboard-examples/go.json
+```
+
+### Build Commands
+| Command | Description |
+|---------|-------------|
+| `./build.sh` | Build binary for current platform |
+| `make -f Makefile.simple build` | Build using simple Makefile |
+| `make -f Makefile.simple build-all` | Build for multiple platforms |
+| `./build-docker.sh` | Build with Docker (no Go required) |
+| `./test.sh` | Run unit tests |
+| `./test-integration.sh` | Run integration tests |
+| `make -f Makefile.simple test` | Run unit tests |
+| `make -f Makefile.simple test-integration` | Run integration tests |
+
+### Troubleshooting
+```bash
+# If Go is not installed
+./no-go-help.sh  # Shows alternatives
+
+# If dependencies are missing
+./fix-deps.sh     # Fixes missing dependencies
+
+# If build fails
+./fix-build.sh    # Fixes common build issues
+```
 
 ## Running options
 
@@ -49,6 +143,8 @@ grafterm -c ./mydashboard.json -r 2s
 ### Debugging
 
 When grafterm doesn't show anything may be that has errors getting metrics or similar. There is available a `--debug` flag that will write a log on `grafterm.log` (this path can be override with `--log-path` flag)
+
+**Note:** The application now includes enhanced error handling and timeout management. Network issues or slow responses won't crash the application - it will gracefully degrade and log timeout errors for debugging.
 
 Read the log
 
@@ -95,6 +191,26 @@ Replace dashboard `prometheus` datasource with user datasource `thanos-prometheu
 ```bash
 grafterm -c ./mydashboard.json -a "prometheus=thanos-prometheus" -u /tmp/my-datasources.json
 ```
+
+## Error Handling & Reliability
+
+The application has been enhanced with robust error handling:
+
+- **Timeout Management**: All external API calls include proper timeouts (2-5 seconds)
+- **Graceful Degradation**: Network timeouts don't crash the application
+- **Context Propagation**: Proper context usage throughout the call chain
+- **Error Logging**: Enhanced logging for debugging timeout issues
+- **Widget Resilience**: Individual widget timeouts don't affect other widgets
+
+### Common Issues and Solutions
+
+| Issue | Solution |
+|-------|----------|
+| Build fails with "go: command not found" | Run `./install-go.sh` or `./no-go-help.sh` |
+| Missing dependencies | Run `./fix-deps.sh` |
+| Import conflicts | Run `./fix-build.sh` |
+| Network timeouts | Check logs with `--debug` flag |
+| Build errors | Check CRUSH.md for detailed guidelines |
 
 ## Dashboard
 
@@ -159,6 +275,30 @@ For example, the dashboard uses a datasource named `prometheus-2b`, and we want 
 ## Kudos
 
 This project would not be possible without the effort of many people and projects but specially [Grafana] for the inspiration, ideas and the project itself, and [Termdash] for the rendering of all those fancy graphs on the terminal.
+
+## Contributing
+
+Contributions are welcome! Please check [CRUSH.md](./CRUSH.md) for development guidelines, build instructions, and code style standards.
+
+### Development Setup
+1. Fork the repository
+2. Clone your fork: `git clone https://github.com/yourusername/grafterm.git`
+3. Setup development environment: `./install-go.sh`
+4. Create a feature branch: `git checkout -b feature-name`
+5. Make your changes and run tests: `./test.sh`
+6. Build and test: `./build.sh && ./bin/grafterm -c ./dashboard-examples/go.json`
+7. Commit your changes: `git commit -m "Add feature"`
+8. Push to the branch: `git push origin feature-name`
+9. Create a Pull Request
+
+### Build System
+The project uses a flexible build system with multiple options:
+- **Simple scripts**: `./build.sh`, `./test.sh`
+- **Makefile**: `make -f Makefile.simple`
+- **Docker support**: `./build-docker.sh`
+- **Dependency management**: `./fix-deps.sh`
+
+See [CRUSH.md](./CRUSH.md) for detailed build instructions and troubleshooting.
 
 [circleci-image]: https://img.shields.io/circleci/project/github/slok/grafterm/master.svg
 [circleci-url]: https://circleci.com/gh/slok/grafterm
