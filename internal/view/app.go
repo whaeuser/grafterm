@@ -2,7 +2,6 @@ package view
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -89,10 +88,21 @@ func (a *App) run(ctx context.Context) error {
 }
 
 func (a *App) sync() {
-	ctx := context.Background()
+	// Create context with timeout for this sync operation
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
 	r := a.syncRequest()
 	err := a.syncer.Sync(ctx, r)
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			a.logger.Errorf("app sync timeout: %s", err)
+			return
+		}
+		if ctx.Err() == context.Canceled {
+			a.logger.Errorf("app sync canceled: %s", err)
+			return
+		}
 		a.logger.Errorf("app level error, syncer failed sync: %s", err)
 	}
 }

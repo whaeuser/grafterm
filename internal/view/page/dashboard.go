@@ -78,19 +78,46 @@ func (d *dashboard) Sync(ctx context.Context, r *sync.Request) error {
 	// Add dashboard sync data.
 	r = d.syncData(r)
 
-	// Sync all widgets.
+	// Create a context with timeout for widget sync operations
+	widgetCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	// Sync all widgets with proper error handling and timeout
+	var wg sync.WaitGroup
+	errorChan := make(chan error, len(d.widgets))
+	
 	for _, w := range d.widgets {
-		w := w
-		go func() {
+		wg.Add(1)
+		go func(widget sync.Syncer) {
+			defer wg.Done()
+			
 			// Don't wait to sync all at the same time, the widgets
 			// should control multiple calls to sync and reject the sync
 			// if already syncing.
-			err := w.Sync(ctx, r)
+			err := widget.Sync(widgetCtx, r)
 			if err != nil {
-				d.logger.Errorf("error syncing widget: %s", err)
+				if widgetCtx.Err() == context.DeadlineExceeded {
+					errorChan <- fmt.Errorf("widget sync timeout: %w", err)
+					return
+				}
+				if widgetCtx.Err() == context.Canceled {
+					errorChan <- fmt.Errorf("widget sync canceled: %w", err)
+					return
+				}
+				errorChan <- fmt.Errorf("error syncing widget: %w", err)
 			}
-		}()
+		}(w)
 	}
+
+	// Wait for all widgets to finish
+	wg.Wait()
+	close(errorChan)
+
+	// Log any errors that occurred
+	for err := range errorChan {
+		d.logger.Errorf(err.Error())
+	}
+
 	return nil
 }
 

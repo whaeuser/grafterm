@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/slok/grafterm/internal/controller"
 	"github.com/slok/grafterm/internal/model"
@@ -49,12 +50,22 @@ func (g *gauge) Sync(ctx context.Context, r *sync.Request) error {
 	}
 	defer g.syncLock.Set(false)
 
+	// Create context with timeout for gauge metric gathering
+	gaugeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
 	// Gather the gauge value.
 	templatedQ := g.cfg.Gauge.Query
 	templatedQ.Expr = r.TemplateData.Render(templatedQ.Expr)
-	m, err := g.controller.GetSingleMetric(ctx, templatedQ, r.TimeRangeEnd)
+	m, err := g.controller.GetSingleMetric(gaugeCtx, templatedQ, r.TimeRangeEnd)
 	if err != nil {
-		return fmt.Errorf("error getting single instant metric: %s", err)
+		if gaugeCtx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("gauge widget timeout: %w", err)
+		}
+		if gaugeCtx.Err() == context.Canceled {
+			return fmt.Errorf("gauge widget canceled: %w", err)
+		}
+		return fmt.Errorf("error getting single instant metric: %w", err)
 	}
 
 	// calculate percent value if required.
@@ -66,13 +77,13 @@ func (g *gauge) Sync(ctx context.Context, r *sync.Request) error {
 	// Change the widget color if required.
 	err = g.changeWidgetColor(val)
 	if err != nil {
-		return err
+		return fmt.Errorf("error changing widget color: %w", err)
 	}
 
 	// Update the render view value.
 	err = g.rendererWidget.Sync(g.cfg.Gauge.PercentValue, val)
 	if err != nil {
-		return fmt.Errorf("error setting value on render view widget: %s", err)
+		return fmt.Errorf("error setting value on render view widget: %w", err)
 	}
 
 	return nil
@@ -104,7 +115,7 @@ func (g *gauge) changeWidgetColor(val float64) error {
 
 	color, err := widgetColorManager{}.GetColorFromThresholds(g.cfg.Gauge.Thresholds, val)
 	if err != nil {
-		return fmt.Errorf("error getting threshold color: %s", err)
+		return fmt.Errorf("error getting threshold color: %w", err)
 	}
 
 	// If is the same color then don't change the widget color.
@@ -115,7 +126,7 @@ func (g *gauge) changeWidgetColor(val float64) error {
 	// Change the color of the gauge widget.
 	err = g.rendererWidget.SetColor(color)
 	if err != nil {
-		return fmt.Errorf("error setting color on view widget: %s", err)
+		return fmt.Errorf("error setting color on view widget: %w", err)
 	}
 
 	// Update state.

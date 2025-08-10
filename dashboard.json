@@ -1,0 +1,350 @@
+{
+  "version": "v1",
+  "datasources": {
+    "prometheus": {
+      "prometheus": {
+        "address": "http://192.168.1.78:9090"
+      }
+    }
+  },
+  "variables": [
+    {
+        "name": "aus",
+        "constant": {
+            "value": "off"
+        }
+    }
+  ],
+  "dashboard": {
+    "variables": {
+      "job": {
+        "constant": { "value": "prometheus" }
+      },
+      "interval": {
+        "interval": { "steps": 50 }
+      }
+    },
+    "widgets": [
+      {
+        "title": "Grid/Netz",
+        "gridPos": { "w": 20 },
+        "singlestat": {
+          "unit": "short",
+          "thresholds": [
+              { 
+                 "color": "#47D038" 
+              },
+              { 
+                 "color": "#D07738",
+                 "startValue": 100
+              },
+              { 
+                 "color": "#D03838", 
+                 "startValue": 2000
+              }
+          ],
+          "query": {
+            "datasourceID": "prometheus",
+            "expr": "red_power{instance=\"192.168.1.78:9641\",job=\"node-red\",sensor=\"grid\",topic=\"prometheus/grid\"}"
+          }
+        }
+      },
+      {
+        "title": "PV Gesamtleistung",
+        "gridPos": { "w": 20 },
+        "singlestat": {
+          "unit": "short",
+          "thresholds": [
+              { 
+                 "color": "#D03838" 
+              },
+              { 
+                 "color": "#D07738",
+                 "startValue": 1000
+              },
+              { 
+                 "color": "#47D038", 
+                 "startValue": 5000
+              }
+          ],
+          "query": {
+            "datasourceID": "prometheus",
+            "expr": "red_power{instance=\"192.168.1.78:9641\",job=\"node-red\",sensor=\"pv\",topic=\"prometheus/pv\"}"
+          }
+        }
+      },
+      {
+        "title": "Kostal",
+        "gridPos": { "w": 20 },
+        "singlestat": {
+          "unit": "short",
+          "thresholds": [
+              { 
+                 "color": "#D03838" 
+              },
+              { 
+                 "color": "#D07738",
+                 "startValue": 500
+              },
+              { 
+                 "color": "#47D038", 
+                 "startValue": 1000
+              }
+          ],
+          "query": {
+            "datasourceID": "prometheus",
+            "expr": "red_power{instance=\"192.168.1.78:9641\",job=\"node-red\",sensor=\"kostal\",topic=\"prometheus/kostal\"}"
+          }
+        }
+      },
+      {
+        "title": "Victron",
+        "gridPos": { "w": 20 },
+        "singlestat": {
+          "unit": "short",
+          "thresholds": [
+              { 
+                 "color": "#D03838" 
+              },
+              { 
+                 "color": "#D07738",
+                 "startValue": 500
+              },
+              { 
+                 "color": "#47D038", 
+                 "startValue": 1000
+              }
+          ],
+          "query": {
+            "datasourceID": "prometheus",
+            "expr": "red_power{instance=\"192.168.1.78:9641\",job=\"node-red\",sensor=\"victron\",topic=\"prometheus/victron\"}"
+          }
+        }
+      },
+      {
+        "title": "BKW",
+        "gridPos": { "w": 20 },
+        "singlestat": {
+          "unit": "short",
+          "thresholds": [
+              { 
+                 "color": "#D03838" 
+              },
+              { 
+                 "color": "#D07738",
+                 "startValue": 500
+              },
+              { 
+                 "color": "#47D038", 
+                 "startValue": 1000
+              }
+          ],
+          "query": {
+            "datasourceID": "prometheus",
+            "expr": "red_power{instance=\"192.168.1.78:9641\",job=\"node-red\",sensor=\"bkw\",topic=\"prometheus/bkw\"}"
+          }
+        }
+      },
+      {
+        "title": "PV Leistung",
+        "gridPos": { "w": 40 },
+        "graph": {
+          "visualization": {
+            "legend": { "disable": true },
+            "yAxis": { "unit": "", "decimals": 2 }
+          },
+          "queries": [
+            {
+              "datasourceID": "prometheus",
+              "expr": "red_power{instance=\"192.168.1.78:9641\",job=\"node-red\",sensor=\"pv\",topic=\"prometheus/pv\"}"
+            }
+          ]
+        }
+      },
+      {
+        "title": "BYD/Kostal",
+        "gridPos": { "w": 20 },
+        "gauge": {
+          "percentValue": true,
+          "max": 100,
+          "min": 0,
+          "thresholds": [
+              { 
+                 "color": "#D03838" 
+              },
+              { 
+                 "color": "#D07738",
+                 "startValue": 30
+              },
+              { 
+                 "color": "#47D038", 
+                 "startValue": 60
+              }
+          ],
+          "query": {
+            "datasourceID": "prometheus",
+            "expr": "red_soc{instance=\"192.168.1.78:9641\",job=\"node-red\",sensor=\"byd\",topic=\"prometheus/byd\"}"
+          }
+        }
+      },
+      {
+        "title": "Victron",
+        "gridPos": { "w": 20 },
+        "gauge": {
+          "percentValue": true,
+          "max": 100,
+          "min": 0,
+          "thresholds": [
+              { 
+                 "color": "#D03838" 
+              },
+              { 
+                 "color": "#D07738",
+                 "startValue": 30
+              },
+              { 
+                 "color": "#47D038", 
+                 "startValue": 60
+              }
+          ],
+          "query": {
+            "datasourceID": "prometheus",
+            "expr": "red_soc{instance=\"192.168.1.78:9641\",job=\"node-red\",sensor=\"victron\",topic=\"prometheus/victron\"}"
+          }
+        }
+      },
+      {
+        "title": "Auto/BMW",
+        "gridPos": { "w": 20 },
+        "gauge": {
+          "percentValue": true,
+          "max": 100,
+          "min": 0, 
+          "thresholds": [
+              { 
+                 "color": "#D03838" 
+              },
+              { 
+                 "color": "#D07738",
+                 "startValue": 20
+              },
+              { 
+                 "color": "#47D038", 
+                 "startValue": 80
+              }
+          ],
+          "query": {
+            "datasourceID": "prometheus",
+            "expr": "red_soc{instance=\"192.168.1.78:9641\",job=\"node-red\",sensor=\"bmw\",topic=\"prometheus/bmw\"}"
+          }
+        }
+      },
+      {
+        "title": "PV Heute in kWh",
+        "gridPos": { "w": 20 },
+        "singlestat": {
+          "unit": "short",
+          "thresholds": [
+              { 
+                 "color": "#D03838" 
+              },
+              { 
+                 "color": "#D07738",
+                 "startValue": 30
+              },
+              { 
+                 "color": "#47D038", 
+                 "startValue": 60
+              }
+          ],
+          "query": {
+            "datasourceID": "prometheus",
+            "expr": "hass_sensor_energy_wh{domain=\"sensor\",entity=\"sensor.solar_yieldday_summe\",friendly_name=\"solar_yieldday_summe\",instance=\"192.168.1.197:8123\",job=\"hass\"}"
+          }
+        }
+      },
+      {
+        "title": "Pv Heute",
+        "gridPos": { "w": 20 },
+        "graph": {
+          "visualization": {
+            "legend": { "disable": true },
+            "yAxis": { "unit": "", "decimals": 2 }
+          },
+          "queries": [
+            {
+              "datasourceID": "prometheus",
+              "expr": "hass_sensor_energy_wh{domain=\"sensor\",entity=\"sensor.solar_yieldday_summe\",friendly_name=\"solar_yieldday_summe\",instance=\"192.168.1.197:8123\",job=\"hass\"}"
+            }
+          ]
+        }
+      },
+      {
+        "title": "Auto laden aktuell",
+        "gridPos": { "w": 20 },
+        "singlestat": {
+          "unit": "short",
+          "valueText": "{{ .value }}",
+          "thresholds": [
+              { 
+                 "color": "#D03838" 
+              },
+              { 
+                 "color": "#D07738",
+                 "startValue": 20
+              },
+              { 
+                 "color": "#47D038", 
+                 "startValue": 80
+              }
+          ],
+          "query": {
+            "datasourceID": "prometheus",
+            "expr": "red_power{instance=\"192.168.1.78:9641\",job=\"node-red\",sensor=\"bmw\",topic=\"prometheus/bmw\"}"
+          }
+        }
+      },
+      {
+        "title": "Wallbox Ladeleistung",
+        "gridPos": { "w": 20 },
+        "graph": {
+          "visualization": {
+            "legend": { "disable": true },
+            "yAxis": { "unit": "", "decimals": 2 }
+          },
+          "queries": [
+            {
+              "datasourceID": "prometheus",
+              "expr": "red_power{instance=\"192.168.1.78:9641\",job=\"node-red\",sensor=\"bmw\",topic=\"prometheus/bmw\"}"
+            }
+          ]
+        }
+      },
+      {
+        "title": "Strompreis aktuell",
+        "gridPos": { "w": 20 },
+        "singlestat": {
+          "decimals": 2, 
+          "unit": "short",
+          "thresholds": [
+              { 
+                 "color": "#47D038"
+              },
+              { 
+                 "color": "#D07738",
+                 "startValue": 0.15
+              },
+              { 
+                 "color": "#D03838", 
+                 "startValue": 0.30
+              }
+          ],
+          "query": {
+            "datasourceID": "prometheus",
+            "expr": "tibber_power_price{home_id=\"4d6e4a72-43bc-412f-93aa-2856268ed5c9\",instance=\"192.168.1.78:9412\",job=\"tibber\",type=\"total\"}"
+          }
+        }
+      }
+    ]
+  }
+}

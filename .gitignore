@@ -22,3 +22,6 @@ vendor/
 # App specific
 dashboards/
 grafterm.log
+
+# Crush directory
+.crush/

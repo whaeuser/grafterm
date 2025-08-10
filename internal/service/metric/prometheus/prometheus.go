@@ -2,10 +2,14 @@ package prometheus
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"net"
+	"net/url"
 	"strings"
+	"syscall"
 	"time"
 
+	"github.com/pkg/errors"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prommodel "github.com/prometheus/common/model"
 
@@ -39,13 +43,19 @@ func (g *gatherer) GatherSingle(ctx context.Context, query model.Query, t time.T
 	// Get value from Prometheus.
 	val, _, err := g.cli.Query(ctx, query.Expr, t)
 	if err != nil {
-		return []model.MetricSeries{}, err
+		if ctx.Err() == context.DeadlineExceeded {
+			return []model.MetricSeries{}, fmt.Errorf("prometheus query timeout: %w", err)
+		}
+		if ctx.Err() == context.Canceled {
+			return []model.MetricSeries{}, fmt.Errorf("prometheus query canceled: %w", err)
+		}
+		return []model.MetricSeries{}, fmt.Errorf("prometheus query failed: %w", err)
 	}
 
 	// Translate prom values to domain.
 	res, err := g.promToModel(val)
 	if err != nil {
-		return []model.MetricSeries{}, err
+		return []model.MetricSeries{}, fmt.Errorf("failed to transform prometheus data: %w", err)
 	}
 
 	return res, nil
@@ -59,13 +69,19 @@ func (g *gatherer) GatherRange(ctx context.Context, query model.Query, start, en
 		Step:  step,
 	})
 	if err != nil {
-		return []model.MetricSeries{}, err
+		if ctx.Err() == context.DeadlineExceeded {
+			return []model.MetricSeries{}, fmt.Errorf("prometheus range query timeout: %w", err)
+		}
+		if ctx.Err() == context.Canceled {
+			return []model.MetricSeries{}, fmt.Errorf("prometheus range query canceled: %w", err)
+		}
+		return []model.MetricSeries{}, fmt.Errorf("prometheus range query failed: %w", err)
 	}
 
 	// Translate prom values to domain.
 	res, err := g.promToModel(val)
 	if err != nil {
-		return []model.MetricSeries{}, err
+		return []model.MetricSeries{}, fmt.Errorf("failed to transform prometheus data: %w", err)
 	}
 
 	return res, nil
@@ -86,7 +102,7 @@ func (g *gatherer) promToModel(pm prommodel.Value) ([]model.MetricSeries, error)
 		matrix := pm.(prommodel.Matrix)
 		res = g.transformMatrix(matrix)
 	default:
-		return res, errors.New("prometheus value type not supported")
+		return res, fmt.Errorf("prometheus value type not supported: %v", pm.Type())
 	}
 
 	return res, nil

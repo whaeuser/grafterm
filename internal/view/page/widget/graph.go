@@ -2,7 +2,9 @@ package widget
 
 import (
 	"context"
+	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/slok/grafterm/internal/controller"
@@ -67,18 +69,32 @@ func (g *graph) Sync(ctx context.Context, r *sync.Request) error {
 		return nil
 	}
 
-	// Gather metrics from multiple queries.
+	// Gather metrics from multiple queries with proper error handling
 	start := r.TimeRangeStart
 	end := r.TimeRangeEnd
 	step := end.Sub(start) / time.Duration(cap)
 	allSeries := []metricSeries{}
+	
+	// Create a context with timeout for metric gathering
+	metricCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	
 	for _, q := range g.widgetCfg.Graph.Queries {
-		//TODO(slok): concurrent queries.
 		templatedQ := q
 		templatedQ.Expr = r.TemplateData.Render(q.Expr)
-		series, err := g.controller.GetRangeMetrics(ctx, templatedQ, start, end, step)
+		
+		series, err := g.controller.GetRangeMetrics(metricCtx, templatedQ, start, end, step)
 		if err != nil {
-			return err
+			if metricCtx.Err() == context.DeadlineExceeded {
+				g.logger.Errorf("graph widget timeout for query '%s': %v", templatedQ.Expr, err)
+				continue // Skip this query but continue with others
+			}
+			if metricCtx.Err() == context.Canceled {
+				g.logger.Errorf("graph widget canceled for query '%s': %v", templatedQ.Expr, err)
+				continue // Skip this query but continue with others
+			}
+			g.logger.Errorf("graph widget error for query '%s': %v", templatedQ.Expr, err)
+			continue // Skip this query but continue with others
 		}
 
 		// Append all received series.
@@ -89,6 +105,12 @@ func (g *graph) Sync(ctx context.Context, r *sync.Request) error {
 			}
 			allSeries = append(allSeries, ms)
 		}
+	}
+
+	// If we couldn't get any data due to timeouts, return gracefully
+	if len(allSeries) == 0 {
+		g.logger.Warnf("no data retrieved for graph widget due to timeouts or errors")
+		return nil
 	}
 
 	// Merge sort all series.

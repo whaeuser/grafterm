@@ -34,7 +34,7 @@ func NewController(gatherer metric.Gatherer) Controller {
 func (c controller) GetSingleMetric(ctx context.Context, query model.Query, t time.Time) (*model.Metric, error) {
 	m, err := c.gatherer.GatherSingle(ctx, query, t)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to gather single metric: %w", err)
 	}
 
 	if len(m) != 1 {
@@ -54,17 +54,17 @@ func (c controller) GetSingleInstantMetric(ctx context.Context, query model.Quer
 
 func (c controller) GetRangeMetrics(ctx context.Context, query model.Query, start, end time.Time, step time.Duration) ([]model.MetricSeries, error) {
 	if step <= 0 {
-		return nil, fmt.Errorf("step must be positive")
+		return nil, fmt.Errorf("step must be positive, got: %v", step)
 	}
 
 	if !start.Before(end) {
-		return nil, fmt.Errorf("start timestamp must be before end timestamp")
+		return nil, fmt.Errorf("start timestamp must be before end timestamp, start: %v, end: %v", start, end)
 	}
 
 	// Get the metrics.
 	s, err := c.gatherer.GatherRange(ctx, query, start, end, step)
 	if err != nil {
-		return []model.MetricSeries{}, err
+		return []model.MetricSeries{}, fmt.Errorf("failed to gather range metrics: %w", err)
 	}
 
 	return s, nil
