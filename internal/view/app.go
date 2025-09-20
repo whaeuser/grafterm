@@ -90,22 +90,37 @@ func (a *App) run(ctx context.Context) error {
 }
 
 func (a *App) sync() {
+	defer func() {
+		if r := recover(); r != nil {
+			a.logger.Errorf("app sync panic recovered: %v", r)
+		}
+	}()
+
 	// Create context with timeout for this sync operation
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
-	
+
+	if a.syncer == nil {
+		a.logger.Errorf("syncer is nil, cannot sync")
+		return
+	}
+
 	r := a.syncRequest()
+	if r == nil {
+		a.logger.Errorf("sync request is nil, cannot sync")
+		return
+	}
+
 	err := a.syncer.Sync(ctx, r)
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			a.logger.Errorf("app sync timeout: %s", err)
-			return
-		}
-		if ctx.Err() == context.Canceled {
+		switch ctx.Err() {
+		case context.DeadlineExceeded:
+			a.logger.Errorf("app sync timeout after 8s: %s", err)
+		case context.Canceled:
 			a.logger.Errorf("app sync canceled: %s", err)
-			return
+		default:
+			a.logger.Errorf("app level error, syncer failed sync: %s", err)
 		}
-		a.logger.Errorf("app level error, syncer failed sync: %s", err)
 	}
 }
 

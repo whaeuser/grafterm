@@ -92,10 +92,20 @@ func (d *dashboard) Sync(ctx context.Context, r *viewsync.Request) error {
 		wg.Add(1)
 		go func(widget viewsync.Syncer) {
 			defer wg.Done()
-			
+			defer func() {
+				if r := recover(); r != nil {
+					errorChan <- fmt.Errorf("widget sync panic recovered: %v", r)
+				}
+			}()
+
 			// Don't wait to sync all at the same time, the widgets
 			// should control multiple calls to sync and reject the sync
 			// if already syncing.
+			if widget == nil {
+				errorChan <- fmt.Errorf("widget is nil, skipping sync")
+				return
+			}
+
 			err := widget.Sync(widgetCtx, r)
 			if err != nil {
 				if widgetCtx.Err() == context.DeadlineExceeded {
