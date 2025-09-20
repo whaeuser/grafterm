@@ -28,7 +28,12 @@ esac
 FINAL_OUTPUT="${OUTPUT_DIR}/${BINARY_NAME}${EXTENSION}"
 
 # Build flags
-LDFLAGS="-w -extldflags '-static'"
+if [ "${OS_NAME}" = "darwin" ]; then
+    # Fix LC_UUID issue on macOS by removing -static flag
+    LDFLAGS="-w"
+else
+    LDFLAGS="-w -extldflags '-static'"
+fi
 VERSION_FLAG="-X main.Version=${VERSION}"
 
 echo "Building grafterm version: ${VERSION}"
@@ -36,10 +41,18 @@ echo "Target OS: ${OS_NAME}"
 echo "Output: ${FINAL_OUTPUT}"
 
 # Build the binary
-go build \
-    -ldflags "${LDFLAGS} ${VERSION_FLAG}" \
-    -o "${FINAL_OUTPUT}" \
-    "${SRC}"
+if [ "${OS_NAME}" = "darwin" ]; then
+    # Build with CGO disabled for macOS to fix LC_UUID issue
+    CGO_ENABLED=0 go build \
+        -ldflags "${LDFLAGS} ${VERSION_FLAG}" \
+        -o "${FINAL_OUTPUT}" \
+        "${SRC}"
+else
+    go build \
+        -ldflags "${LDFLAGS} ${VERSION_FLAG}" \
+        -o "${FINAL_OUTPUT}" \
+        "${SRC}"
+fi
 
 echo "Build completed successfully!"
 echo "Binary location: $(realpath "${FINAL_OUTPUT}")"
