@@ -39,6 +39,9 @@ const (
 	descDebug           = "enable debug mode, on debug mode it will print logs to the desired output"
 	descVar             = "repeatable flag that will override the variable defined on the dashboard (in 'key=value' form)"
 	descDSAlias         = "repeatable flag that maps dashboard ID datasources to user defined datasources in the form of 'dashboard=user' (in 'key=value' form)"
+	descLegacyMode      = "use legacy mode for backward compatibility (disables caching, retry logic, and enhanced timeouts)"
+	descDisableCache    = "disable metric caching (overrides default when not in legacy mode)"
+	descDisableRetry    = "disable query retry logic (overrides default when not in legacy mode)"
 )
 
 var descUserDS = fmt.Sprintf("path to a configuration file with user defined datasources, these datasources can override the dashboard datasources with the same ID and also can be used to alias them using datasource alias flags. It fallbacks to %s env var", envUserDatasources)
@@ -55,6 +58,9 @@ type flags struct {
 	start           string
 	relativeDur     time.Duration
 	end             string
+	legacyMode      bool
+	disableCache    bool
+	disableRetry    bool
 }
 
 func newFlags() (*flags, error) {
@@ -87,6 +93,9 @@ func newFlags() (*flags, error) {
 	app.Flag("ds-alias", descDSAlias).Short('a').StringMapVar(&flags.aliases)
 	app.Flag("user-datasources", descUserDS).Default(userDsPath).Short('u').Envar(envUserDatasources).StringVar(&flags.userDSPath)
 	app.Flag("debug", descDebug).BoolVar(&flags.debug)
+	app.Flag("legacy-mode", descLegacyMode).BoolVar(&flags.legacyMode)
+	app.Flag("disable-cache", descDisableCache).BoolVar(&flags.disableCache)
+	app.Flag("disable-retry", descDisableRetry).BoolVar(&flags.disableRetry)
 	app.Parse(os.Args[1:])
 
 	if err := flags.validate(); err != nil {

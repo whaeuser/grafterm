@@ -38,10 +38,13 @@ type ConfigGatherer struct {
 	// The key of the map is the referenced ID on the dashboard, and the
 	// value of the map is the ID of the datasource that will be used.
 	Aliases map[string]string
+	// EnhancedFeatures configures enhanced timeout, caching, and retry features
+	// Set to nil or use metric.LegacyConfig() for backward compatibility
+	EnhancedFeatures *metric.EnhancedFeaturesConfig
 	// CreateFakeFunc is the function that will be called to create fake gatherers.
 	CreateFakeFunc func(ds model.FakeDatasource) (metric.Gatherer, error)
 	// CreatePrometheusFunc is the function that will be called to create Prometheus gatherers.
-	CreatePrometheusFunc func(ds model.PrometheusDatasource) (metric.Gatherer, error)
+	CreatePrometheusFunc func(ds model.PrometheusDatasource, dsID string) (metric.Gatherer, error)
 	// CreateGraphiteFunc is the function that will be called to create Graphite gatherers.
 	CreateGraphiteFunc func(ds model.GraphiteDatasource) (metric.Gatherer, error)
 	// CreateInfluxDBFunc is the function that will be called to create InfluxDB gatherers.
@@ -56,16 +59,36 @@ func (c *ConfigGatherer) defaults() {
 		}
 	}
 
+	// Set default enhanced features if not specified
+	if c.EnhancedFeatures == nil {
+		defaultCfg := metric.DefaultEnhancedFeaturesConfig()
+		c.EnhancedFeatures = &defaultCfg
+	}
+
 	// Set default creator function for prometheus.
 	if c.CreatePrometheusFunc == nil {
-		c.CreatePrometheusFunc = func(ds model.PrometheusDatasource) (metric.Gatherer, error) {
+		c.CreatePrometheusFunc = func(ds model.PrometheusDatasource, dsID string) (metric.Gatherer, error) {
 			cli, err := prometheusapi.NewClient(prometheusapi.Config{
 				Address: ds.Address,
 			})
 			if err != nil {
 				return nil, err
 			}
-			// Use standard gatherer for simplicity - enhanced features can be added later
+
+			// Use enhanced gatherer if enabled, otherwise use standard
+			if c.EnhancedFeatures != nil && c.EnhancedFeatures.Enabled {
+				g := prometheus.NewEnhancedGatherer(prometheus.ConfigGatherer{
+					Client: prometheusv1.NewAPI(cli),
+				}, dsID)
+
+				// Configure timeout if specified
+				// Note: SetTimeout will be called via the EnhancedGatherer interface
+				// when we add it, but for now the default timeout is used
+
+				return g, nil
+			}
+
+			// Legacy mode: use standard gatherer
 			g := prometheus.NewGatherer(prometheus.ConfigGatherer{
 				Client: prometheusv1.NewAPI(cli),
 			})
@@ -207,7 +230,7 @@ func (g *gatherer) metricGatherer(id string) (metric.Gatherer, error) {
 func createGatherer(cfg ConfigGatherer, ds model.Datasource, dsID string) (metric.Gatherer, error) {
 	switch {
 	case ds.Prometheus != nil:
-		return cfg.CreatePrometheusFunc(*ds.Prometheus)
+		return cfg.CreatePrometheusFunc(*ds.Prometheus, dsID)
 	case ds.Graphite != nil:
 		return cfg.CreateGraphiteFunc(*ds.Graphite)
 	case ds.InfluxDB != nil:

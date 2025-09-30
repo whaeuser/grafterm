@@ -77,8 +77,14 @@ func (g *gauge) SetColor(hexColor string) error {
 		return err
 	}
 
-	// Replace the instance value. We need to replace the content of the widget,
-	// is ok to copy the value in this case although the widget donut has a mutex.
-	*g.widget = *d
+	// Replace the widget pointer instead of copying the value to avoid mutex copy.
+	g.widget = d
+
+	// Recreate the grid element with the new widget to ensure consistency.
+	g.element = grid.Widget(g.widget,
+		container.Border(linestyle.Light),
+		container.BorderTitle(g.cfg.Title),
+	)
+
 	return nil
 }

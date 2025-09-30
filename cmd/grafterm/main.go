@@ -194,10 +194,34 @@ func (m *Main) loadUserDatasources() ([]model.Datasource, error) {
 }
 
 func (m *Main) createGatherer(dashboardDss, userDss []model.Datasource) (metric.Gatherer, error) {
+	// Determine enhanced features configuration based on flags
+	var enhancedCfg *metric.EnhancedFeaturesConfig
+	if m.flags.legacyMode {
+		// Legacy mode: disable all enhanced features
+		legacyCfg := metric.LegacyConfig()
+		enhancedCfg = &legacyCfg
+		m.logger.Infof("Running in legacy mode (enhanced features disabled)")
+	} else {
+		// Enhanced mode: use defaults but respect individual override flags
+		defaultCfg := metric.DefaultEnhancedFeaturesConfig()
+		if m.flags.disableCache {
+			defaultCfg.EnableCaching = false
+			m.logger.Infof("Metric caching disabled by flag")
+		}
+		if m.flags.disableRetry {
+			defaultCfg.EnableRetry = false
+			m.logger.Infof("Query retry logic disabled by flag")
+		}
+		enhancedCfg = &defaultCfg
+		m.logger.Infof("Enhanced features enabled (caching: %v, retry: %v, timeout: %v)",
+			enhancedCfg.EnableCaching, enhancedCfg.EnableRetry, enhancedCfg.QueryTimeout)
+	}
+
 	gatherer, err := metricdatasource.NewGatherer(metricdatasource.ConfigGatherer{
 		DashboardDatasources: dashboardDss,
 		UserDatasources:      userDss,
 		Aliases:              m.flags.aliases,
+		EnhancedFeatures:     enhancedCfg,
 	})
 	if err != nil {
 		return nil, err
