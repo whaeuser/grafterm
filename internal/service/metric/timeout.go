@@ -23,6 +23,64 @@ type QueryExecutor struct {
 	metrics   *ExecutionMetrics
 }
 
+// ExecutionMetrics tracks query execution statistics
+type ExecutionMetrics struct {
+	mu           sync.RWMutex
+	totalQueries int64
+	cacheHits    int64
+	errors       int64
+	successes    int64
+}
+
+// NewExecutionMetrics creates a new execution metrics tracker
+func NewExecutionMetrics() *ExecutionMetrics {
+	return &ExecutionMetrics{}
+}
+
+// RecordCacheHit increments the cache hit counter
+func (em *ExecutionMetrics) RecordCacheHit() {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+	em.totalQueries++
+	em.cacheHits++
+}
+
+// RecordError increments the error counter
+func (em *ExecutionMetrics) RecordError(err error) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+	em.totalQueries++
+	em.errors++
+}
+
+// RecordSuccess increments the success counter
+func (em *ExecutionMetrics) RecordSuccess() {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+	em.totalQueries++
+	em.successes++
+}
+
+// Stats returns current execution statistics
+func (em *ExecutionMetrics) Stats() ExecutionStats {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+	return ExecutionStats{
+		TotalQueries: em.totalQueries,
+		CacheHits:    em.cacheHits,
+		Errors:       em.errors,
+		Successes:    em.successes,
+	}
+}
+
+// ExecutionStats contains execution statistics
+type ExecutionStats struct {
+	TotalQueries int64
+	CacheHits    int64
+	Errors       int64
+	Successes    int64
+}
+
 // NewQueryExecutor creates a new query executor with timeout management
 func NewQueryExecutor(cache *MetricCache) *QueryExecutor {
 	return &QueryExecutor{
@@ -35,12 +93,15 @@ func NewQueryExecutor(cache *MetricCache) *QueryExecutor {
 // ExecuteQuery performs a metric query with context timeout
 func (qe *QueryExecutor) ExecuteQuery(
 	ctx context.Context,
-	gatherer Gatherer,
-	query string,
-	tr model.TimeRange,
+	gatherer IdentifiableGatherer,
+	query model.Query,
+	t time.Time,
 ) ([]model.MetricSeries, error) {
+	// Create time range for caching
+	tr := model.TimeRange{Start: t, End: t}
+
 	// Check cache first
-	cacheKey := NewCacheKey(gatherer.ID(), query, tr)
+	cacheKey := NewCacheKey(gatherer.ID(), query.Expr, tr)
 	if cached, found := qe.cache.Get(cacheKey); found {
 		qe.metrics.RecordCacheHit()
 		return cached, nil
@@ -59,7 +120,7 @@ func (qe *QueryExecutor) ExecuteQuery(
 	}
 
 	// Execute query with retry logic
-	result, err := qe.executeWithRetry(ctx, gatherer, query, tr)
+	result, err := qe.executeWithRetry(ctx, gatherer, query, t)
 	if err != nil {
 		qe.metrics.RecordError(err)
 		return nil, err
@@ -76,11 +137,11 @@ func (qe *QueryExecutor) ExecuteQuery(
 func (qe *QueryExecutor) executeWithRetry(
 	ctx context.Context,
 	gatherer Gatherer,
-	query string,
-	tr model.TimeRange,
+	query model.Query,
+	t time.Time,
 ) ([]model.MetricSeries, error) {
 	var lastErr error
-	
+
 	for attempt := 0; attempt < MaxRetransmission; attempt++ {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
@@ -96,13 +157,13 @@ func (qe *QueryExecutor) executeWithRetry(
 			}
 		}
 
-		result, err := gatherer.GatherSingle(ctx, query, tr)
+		result, err := gatherer.GatherSingle(ctx, query, t)
 		if err == nil {
 			return result, nil
 		}
 
 		lastErr = err
-		
+
 		// Handle specific error types differently
 		if isContextError(err) {
 			return nil, err // Don't retry context errors
@@ -149,18 +210,18 @@ func (pqe *ParallelQueryExecutor) ExecuteWidgetQueries(
 		wg.Add(1)
 		go func(w WidgetData) {
 			defer wg.Done()
-			
+
 			widgetCtx, cancel := context.WithTimeout(ctx, DefaultTimeout)
 			defer cancel()
 
-			metrics, err := pqe.qe.ExecuteQuery(widgetCtx, w.Gatherer, w.Query, w.TimeRange)
-			
+			metrics, err := pqe.qe.ExecuteQuery(widgetCtx, w.Gatherer, w.Query, w.Timestamp)
+
 			result := WidgetResult{
 				ID:      w.ID,
 				Metrics: metrics,
 				Error:   err,
 			}
-			
+
 			// Non-blocking send for graceful shutdown
 			select {
 			case resultsCh <- result:
@@ -186,10 +247,10 @@ func (pqe *ParallelQueryExecutor) ExecuteWidgetQueries(
 
 // WidgetData represents a single widget query
 type WidgetData struct {
-	ID       string
-	Gatherer Gatherer
-	Query    string
-	TimeRange model.TimeRange
+	ID        string
+	Gatherer  IdentifiableGatherer
+	Query     model.Query
+	Timestamp time.Time
 }
 
 // WidgetResult contains the execution result for a widget

@@ -1,7 +1,6 @@
 package metric
 
 import (
-	"context"
 	"crypto/sha256"
 	"fmt"
 	"sync"
@@ -14,20 +13,15 @@ import (
 type MetricCacheKey struct {
 	DatasourceID string
 	Query        string
-	Range        model.Range
+	TimeRange    model.TimeRange
 }
 
 // NewCacheKey creates a cache key from query parameters
 func NewCacheKey(datasourceID, query string, tr model.TimeRange) MetricCacheKey {
-	h := sha256.New()
-	h.Write([]byte(datasourceID))
-	h.Write([]byte(query))
-	h.Write([]byte(fmt.Sprintf("%v:%v", tr.Start, tr.End)))
-	
 	return MetricCacheKey{
 		DatasourceID: datasourceID,
 		Query:        query,
-		Range:        tr.Range,
+		TimeRange:    tr,
 	}
 }
 
@@ -67,9 +61,9 @@ func NewMetricCache(maxSize int64, maxAge time.Duration) *MetricCache {
 func (mc *MetricCache) Get(key MetricCacheKey) ([]model.MetricSeries, bool) {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
-	
-	cacheKey := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%s", key.DatasourceID, key.Query))))
-	
+
+	cacheKey := mc.generateCacheKey(key)
+
 	if entry, exists := mc.entries[cacheKey]; exists {
 		if time.Now().Before(entry.expires) {
 			entry.hits++
@@ -78,7 +72,7 @@ func (mc *MetricCache) Get(key MetricCacheKey) ([]model.MetricSeries, bool) {
 		}
 		delete(mc.entries, cacheKey)
 	}
-	
+
 	mc.misses++
 	return nil, false
 }
@@ -87,18 +81,28 @@ func (mc *MetricCache) Get(key MetricCacheKey) ([]model.MetricSeries, bool) {
 func (mc *MetricCache) Set(key MetricCacheKey, data []model.MetricSeries) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	
+
 	if int64(len(mc.entries))*2 > mc.maxSize {
 		mc.evictOldEntries()
 	}
-	
-	cacheKey := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%s", key.DatasourceID, key.Query))))
-	
+
+	cacheKey := mc.generateCacheKey(key)
+
 	mc.entries[cacheKey] = &cacheEntry{
 		data:    data,
 		created: time.Now(),
 		expires: time.Now().Add(mc.maxAge),
 	}
+}
+
+// generateCacheKey creates a unique string key from MetricCacheKey
+func (mc *MetricCache) generateCacheKey(key MetricCacheKey) string {
+	keyStr := fmt.Sprintf("%s:%s:%v:%v",
+		key.DatasourceID,
+		key.Query,
+		key.TimeRange.Start.Unix(),
+		key.TimeRange.End.Unix())
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(keyStr)))
 }
 
 // Stats returns cache statistics

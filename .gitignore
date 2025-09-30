@@ -25,3 +25,6 @@ grafterm.log
 
 # Crush directory
 .crush/
+
+# Generated documentation
+docs/*.html

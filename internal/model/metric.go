@@ -17,3 +17,12 @@ type MetricSeries struct {
 	Labels  map[string]string
 	Metrics []Metric
 }
+
+// TimeRange represents a time range for queries
+type TimeRange struct {
+	Start time.Time
+	End   time.Time
+}
+
+// Range is a duration representing a time range
+type Range time.Duration

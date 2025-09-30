@@ -65,6 +65,7 @@ func (c *ConfigGatherer) defaults() {
 			if err != nil {
 				return nil, err
 			}
+			// Use standard gatherer for simplicity - enhanced features can be added later
 			g := prometheus.NewGatherer(prometheus.ConfigGatherer{
 				Client: prometheusv1.NewAPI(cli),
 			})
@@ -137,7 +138,7 @@ func NewGatherer(cfg ConfigGatherer) (metric.Gatherer, error) {
 	// Lowest priority (0).
 	gs := map[string]metric.Gatherer{}
 	for _, ds := range cfg.DashboardDatasources {
-		g, err := createGatherer(cfg, ds)
+		g, err := createGatherer(cfg, ds, ds.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +148,7 @@ func NewGatherer(cfg ConfigGatherer) (metric.Gatherer, error) {
 	// Mid priority (1).
 	ags := map[string]metric.Gatherer{}
 	for _, ds := range cfg.UserDatasources {
-		g, err := createGatherer(cfg, ds)
+		g, err := createGatherer(cfg, ds, ds.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -203,7 +204,7 @@ func (g *gatherer) metricGatherer(id string) (metric.Gatherer, error) {
 	return mg, nil
 }
 
-func createGatherer(cfg ConfigGatherer, ds model.Datasource) (metric.Gatherer, error) {
+func createGatherer(cfg ConfigGatherer, ds model.Datasource, dsID string) (metric.Gatherer, error) {
 	switch {
 	case ds.Prometheus != nil:
 		return cfg.CreatePrometheusFunc(*ds.Prometheus)

@@ -3,21 +3,13 @@ package prometheus
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
-	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	prommodel "github.com/prometheus/common/model"
 	"github.com/slok/grafterm/internal/model"
+	"github.com/slok/grafterm/internal/service/metric"
 )
-
-// EnhancedGatherer provides improved Prometheus integration with timeout management
-type EnhancedGatherer interface {
-	metric.Gatherer
-	ID() string
-	SetTimeout(duration time.Duration)
-	GetLastExecutionTime() time.Duration
-}
 
 // enhancedGatherer wraps the standard prometheus gatherer with enhanced features
 type enhancedGatherer struct {
@@ -40,7 +32,7 @@ type gathererMetrics struct {
 }
 
 // NewEnhancedGatherer returns an enhanced version of the Prometheus gatherer
-func NewEnhancedGatherer(cfg ConfigGatherer, datasourceID string) EnhancedGatherer {
+func NewEnhancedGatherer(cfg ConfigGatherer, datasourceID string) metric.IdentifiableGatherer {
 	return &enhancedGatherer{
 		base:    &gatherer{cli: cfg.Client, cfg: cfg},
 		id:      datasourceID,
@@ -78,7 +70,7 @@ func (eg *enhancedGatherer) GetLastExecutionTime() time.Duration {
 }
 
 // GatherSingle gathers a single metric point with timeout management
-func (eg *enhancedGatherer) GatherSingle(ctx context.Context, query string, t time.Time) ([]model.MetricSeries, error) {
+func (eg *enhancedGatherer) GatherSingle(ctx context.Context, query model.Query, t time.Time) ([]model.MetricSeries, error) {
 	start := time.Now()
 	defer func() {
 		if eg != nil {
@@ -95,7 +87,7 @@ func (eg *enhancedGatherer) GatherSingle(ctx context.Context, query string, t ti
 }
 
 // GatherRange gathers a range of metrics with timeout management
-func (eg *enhancedGatherer) GatherRange(ctx context.Context, query string, start, end time.Time, step time.Duration) ([]model.MetricSeries, error) {
+func (eg *enhancedGatherer) GatherRange(ctx context.Context, query model.Query, start, end time.Time, step time.Duration) ([]model.MetricSeries, error) {
 	queryStart := time.Now()
 	defer func() {
 		if eg != nil {
@@ -116,14 +108,14 @@ func (eg *enhancedGatherer) GatherRange(ctx context.Context, query string, start
 func (eg *enhancedGatherer) executeWithRetry(
 	ctx context.Context,
 	queryFunc func(context.Context, model.Query, time.Time) ([]model.MetricSeries, error),
-	query string,
-	time time.Time,
+	query model.Query,
+	t time.Time,
 ) ([]model.MetricSeries, error) {
 	var result []model.MetricSeries
 	var lastErr error
-	
+
 	maxRetries := 2
-	
+
 	for retry := 0; retry < maxRetries; retry++ {
 		if ctx.Err() != nil {
 			if eg.metrics != nil {
@@ -132,7 +124,7 @@ func (eg *enhancedGatherer) executeWithRetry(
 			return nil, fmt.Errorf("query deadline exceeded: %w", ctx.Err())
 		}
 
-		result, lastErr = queryFunc(ctx, model.Query{Expr: query}, time)
+		result, lastErr = queryFunc(ctx, query, t)
 		if lastErr == nil {
 			if eg.metrics != nil {
 				eg.markSuccess()
@@ -168,15 +160,15 @@ func (eg *enhancedGatherer) executeWithRetry(
 // executeWithRetryForRange wraps range queries with specific logic
 func (eg *enhancedGatherer) executeWithRetryForRange(
 	ctx context.Context,
-	query string,
+	query model.Query,
 	start, end time.Time,
 	step time.Duration,
 ) ([]model.MetricSeries, error) {
 	var result []model.MetricSeries
 	var lastErr error
-	
+
 	maxRetries := 2
-	
+
 	for retry := 0; retry < maxRetries; retry++ {
 		if ctx.Err() != nil {
 			if eg.metrics != nil {
@@ -185,7 +177,7 @@ func (eg *enhancedGatherer) executeWithRetryForRange(
 			return nil, fmt.Errorf("range query deadline exceeded: %w", ctx.Err())
 		}
 
-		result, lastErr = eg.base.GatherRange(ctx, model.Query{Expr: query}, start, end, step)
+		result, lastErr = eg.base.GatherRange(ctx, query, start, end, step)
 		if lastErr == nil {
 			if eg.metrics != nil {
 				eg.markSuccess()

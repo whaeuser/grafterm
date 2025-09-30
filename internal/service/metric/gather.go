@@ -16,3 +16,10 @@ type Gatherer interface {
 	// The returned metrics on the series should be ordered.
 	GatherRange(ctx context.Context, query model.Query, start, end time.Time, step time.Duration) ([]model.MetricSeries, error)
 }
+
+// IdentifiableGatherer extends Gatherer with an ID for caching and tracking
+type IdentifiableGatherer interface {
+	Gatherer
+	// ID returns a unique identifier for this gatherer (typically the datasource ID)
+	ID() string
+}
