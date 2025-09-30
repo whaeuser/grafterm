@@ -145,7 +145,7 @@ func TestGathererGatherSingle(t *testing.T) {
 					gCount++
 					return g, nil
 				},
-				CreatePrometheusFunc: func(_ model.PrometheusDatasource) (metric.Gatherer, error) {
+				CreatePrometheusFunc: func(_ model.PrometheusDatasource, _ string) (metric.Gatherer, error) {
 					g := mgs[gCount]
 					gCount++
 					return g, nil

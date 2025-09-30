@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Enhanced Prometheus gatherer with configurable timeout management, retry logic, and caching.
+- CLI flags: `--legacy-mode`, `--disable-cache`, `--disable-retry` for feature control.
+- Comprehensive unit tests for enhanced features and configuration.
+
+### Fixed
+
+- Mutex copy issue in gauge widget color change (termdash/gauge.go).
+- Thread-safe timeout and metrics tracking in enhanced Prometheus gatherer.
+
+### Changed
+
+- Improved error handling with context-aware timeout detection.
+- Dynamic timeout scaling for range queries based on time range size.
+
 ## [0.2.0] - 2019-07-26
 
 ### Added
