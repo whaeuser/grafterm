@@ -2,6 +2,7 @@ package termdash
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/mum4k/termdash"
@@ -57,11 +58,29 @@ func NewTermDashboard(cancel func(), logger log.Logger) (render.Renderer, error)
 }
 
 func (t *termDashboard) Close() {
-	t.terminal.Close()
+	defer func() {
+		if r := recover(); r != nil {
+			// Log the panic but don't re-panic during cleanup
+			if t.logger != nil {
+				t.logger.Errorf("terminal close panic recovered: %v", r)
+			}
+		}
+	}()
+
+	if t.terminal != nil {
+		t.terminal.Close()
+	}
 }
 
 // Run will run the view, its' a blocker.
 func (t *termDashboard) LoadDashboard(ctx context.Context, gr *graftermgrid.Grid) ([]render.Widget, error) {
+	if t.terminal == nil {
+		return nil, fmt.Errorf("terminal is nil")
+	}
+	if gr == nil {
+		return nil, fmt.Errorf("grid is nil")
+	}
+
 	// Create main view (root).
 	c, err := container.New(t.terminal, container.ID(rootID))
 	if err != nil {
@@ -80,14 +99,23 @@ func (t *termDashboard) LoadDashboard(ctx context.Context, gr *graftermgrid.Grid
 	}
 
 	go func() {
-		quitter := func(k *terminalapi.Keyboard) {
-			if k.Key == 'q' || k.Key == 'Q' || k.Key == keyboard.KeyEsc {
+		defer func() {
+			if r := recover(); r != nil {
+				t.logger.Errorf("termdash goroutine panic recovered: %v", r)
 				t.cancel()
+			}
+		}()
+
+		quitter := func(k *terminalapi.Keyboard) {
+			if k != nil && (k.Key == 'q' || k.Key == 'Q' || k.Key == keyboard.KeyEsc) {
+				if t.cancel != nil {
+					t.cancel()
+				}
 			}
 		}
 		if err := termdash.Run(ctx, t.terminal, c, termdash.KeyboardSubscriber(quitter), termdash.RedrawInterval(redrawInterval)); err != nil {
 			t.logger.Errorf("error running termdash terminal: %s", err)
-			// TODO(slok): exit on error.
+			t.cancel()
 		}
 	}()
 

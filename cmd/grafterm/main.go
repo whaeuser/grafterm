@@ -81,7 +81,11 @@ func (m *Main) Run() error {
 	if err != nil {
 		return err
 	}
-	defer renderer.Close()
+	defer func() {
+		if renderer != nil {
+			renderer.Close()
+		}
+	}()
 
 	// Prepare app for running.
 	var g run.Group
@@ -145,11 +149,21 @@ func (m *Main) Run() error {
 
 		g.Add(
 			func() error {
+				defer func() {
+					if r := recover(); r != nil {
+						m.logger.Errorf("app run panic recovered: %v", r)
+					}
+					cancel()
+				}()
+
+				if app == nil {
+					return fmt.Errorf("app is nil")
+				}
+
 				err := app.Run(ctx)
 				if err != nil {
 					return err
 				}
-				defer cancel()
 				return nil
 			},
 			func(e error) {
